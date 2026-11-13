@@ -1,7 +1,7 @@
 // ── the language server, independent of how it is connected ──────────────
 // node.ts runs it over IPC/stdio for VS Code; a browser entry can run it in a web worker.
 import {
-  type Connection, type CompletionItem, type Diagnostic, type DocumentSymbol, type InitializeResult,
+  type Connection, type CompletionItem, type Diagnostic, type DocumentSymbol, type InitializeResult, type SelectionRange,
   TextDocuments, TextDocumentSyncKind, CompletionItemKind, CompletionTriggerKind, DiagnosticSeverity,
   InsertTextFormat, MarkupKind,
 } from 'vscode-languageserver';
@@ -13,6 +13,7 @@ import { validate, type Problem } from '../core/validate.ts';
 import { wellFormed } from '../core/wellformed.ts';
 import { possibleAt } from '../core/complete.ts';
 import { matchingTags } from '../core/tags.ts';
+import { elementsAround } from '../core/elements.ts';
 import { oddOutline, teiOutline, elementOutline, type OutlineSymbol } from '../core/outline.ts';
 
 export const SOURCE = 'oddity-ls';
@@ -34,6 +35,8 @@ export interface InitOptions {
 export const SCHEMA_FOR = 'oddity/schemaFor';
 /** Custom notification to the client whenever a document's schema is known or changes. */
 export const SCHEMA_CHANGED = 'oddity/schemaChanged';
+/** Custom request: the elements the schema allows at an offset, [{ name, detail }], or null without a schema. */
+export const ALLOWED_ELEMENTS = 'oddity/allowedElements';
 
 const DELAY = 250;
 
@@ -57,6 +60,7 @@ export function startServer(connection: Connection, host: Host): void {
         completionProvider: { triggerCharacters: ['<', ' ', '"', "'"] },
         linkedEditingRangeProvider: true,
         documentSymbolProvider: true,
+        selectionRangeProvider: true,
       },
       serverInfo: { name: 'oddity-language-server' },
     };
@@ -149,6 +153,8 @@ export function startServer(connection: Connection, host: Host): void {
     return possible.suggestions.map((s, i): CompletionItem => {
       const item: CompletionItem = {
         label: s.label,
+        // shown beside every entry of the list, as opm studio does; detail only in the expanded pane
+        labelDetails: s.detail ? { description: s.detail } : undefined,
         detail: s.detail,
         documentation: s.info ? { kind: MarkupKind.PlainText, value: s.info } : undefined,
         sortText: String(i).padStart(5, '0'),
@@ -202,6 +208,34 @@ export function startServer(connection: Connection, host: Host): void {
       children: s.children.map(convert),
     });
     return symbols.map(convert);
+  });
+
+  // Expand Selection steps through the enclosing elements
+  connection.onSelectionRanges(({ textDocument, positions }) => {
+    const doc = documents.get(textDocument.uri);
+    if (!doc) return [];
+    const text = doc.getText();
+    return positions.map(position => {
+      const at = doc.offsetAt(position);
+      // built from the outermost element in, so each range's parent is the next larger one
+      let range: SelectionRange | undefined;
+      for (const e of elementsAround(text, at).reverse()) {
+        range = { range: { start: doc.positionAt(e.from), end: doc.positionAt(e.to) }, parent: range };
+      }
+      return range ?? { range: { start: position, end: position } };
+    });
+  });
+
+  connection.onRequest(ALLOWED_ELEMENTS, async ({ uri, offset }: { uri: string; offset: number }) => {
+    const doc = documents.get(uri);
+    if (!doc) return null;
+    const { grammar } = await grammarOf(choiceOf(doc));
+    if (!grammar) return null;
+    // what may start here: the text before, as if an element were begun at offset
+    const before = doc.getText().slice(0, offset);
+    const possible = possibleAt(grammar, before, offset);
+    if (!possible) return null;
+    return possible.suggestions.filter(s => s.kind === 'element').map(s => ({ name: s.label, detail: s.detail }));
   });
 
   connection.onRequest(SCHEMA_FOR, ({ uri }: { uri: string }) => {

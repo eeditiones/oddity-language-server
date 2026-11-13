@@ -45,7 +45,7 @@ export function scanTags(text: string): Tag[] {
 }
 
 /** Pairs of open and close tags, by index into tags, matched like a parser would. */
-function pairs(tags: Tag[]): Map<number, number> {
+export function pairs(tags: Tag[]): Map<number, number> {
   const stack: number[] = [];
   const pair = new Map<number, number>();
   tags.forEach((t, i) => {

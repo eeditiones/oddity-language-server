@@ -49,6 +49,28 @@ test('completion follows the schema at the cursor', async () => {
   assert.deepEqual(items.map(i => i.label), ['item']);
 });
 
+test('completion items carry the schema documentation', async () => {
+  const u = pathToFileURL(join(tmpdir(), 'oddity-ls-tei.xml')).href; // outside the project: tei_all
+  const xml = '<TEI xmlns="http://www.tei-c.org/ns/1.0"><teiHeader><fileDesc><titleStmt><title>t</title></titleStmt>' +
+    '<publicationStmt><p>x</p></publicationStmt><sourceDesc><p>x</p></sourceDesc></fileDesc></teiHeader><text><body><p><';
+  await open(u, xml);
+  const items = await conn.sendRequest<{ label: string; labelDetails?: { description?: string }; documentation?: { value: string } }[]>(
+    'textDocument/completion', { textDocument: { uri: u }, position: { line: 0, character: xml.length }, context: { triggerKind: 2, triggerCharacter: '<' } });
+  const g = items.find(i => i.label === 'g');
+  assert.equal(g?.labelDetails?.description, 'character or glyph');
+  assert.match(g?.documentation?.value ?? '', /represents a glyph/);
+});
+
+test('allowed elements and selection ranges', async () => {
+  const allowed = await conn.sendRequest<{ name: string }[]>('oddity/allowedElements', { uri, offset: '<doc>'.length });
+  assert.deepEqual(allowed.map(a => a.name), ['item']);
+  const [r] = await conn.sendRequest<{ range: { start: { character: number }; end: { character: number } }; parent?: unknown }[]>(
+    'textDocument/selectionRange', { textDocument: { uri }, positions: [{ line: 0, character: 7 }] });
+  // the cursor in <other/>: that element, then <doc>
+  assert.deepEqual([r.range.start.character, r.range.end.character], [5, 13]);
+  assert.ok(r.parent);
+});
+
 test('the schema in use is reported', async () => {
   const choice = await conn.sendRequest<{ url: string; via: string }>('oddity/schemaFor', { uri });
   assert.deepEqual(choice, { url: pathToFileURL(join(dir, 'schema/doc.rng')).href, via: 'project' });

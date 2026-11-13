@@ -1,21 +1,24 @@
 # oddity-language-server
 
 RELAX NG validation and schema-aware completion for TEI documents and ODDs, as a
-language server. Used by the ODDity VS Code extension; meant to be shared with
-opm studio.
+language server. Used by the ODDity VS Code extension.
 
-Completion knows what the schema allows at the cursor, in document order
-(after `<TEI>` only `<teiHeader>`), and offers the documentation the ODD gives
-each element and attribute.
+Completion only suggests elements and attributes that the schema allows at the
+cursor position, and it respects their required order. For example, right after
+`<TEI>` it suggests only `<teiHeader>`. Each suggestion shows the description
+that the ODD provides for that element or attribute.
 
-## Which schema a document gets
+## Schema lookup
+
+The language server tries to find the schema associated with a document by checking the following locations in order:
 
 1. a local `.rng` named by the document's `<?xml-model?>`
 2. for documents other than ODDs, `[editor] schema` in the nearest `opm.toml`
 3. defaults: `schema/odd/teipublisher_odds.rng` for `.odd` files,
    `schema/tei/tei_all.rng` for TEI documents
 
-Other XML gets well-formedness checks, an outline and tag renaming.
+If no schema can be determined, the language server still supports
+well-formedness checks, an outline and tag renaming.
 
 ## Layout
 
