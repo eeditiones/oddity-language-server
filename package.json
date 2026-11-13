@@ -1,0 +1,50 @@
+{
+  "name": "oddity-language-server",
+  "version": "0.1.0",
+  "description": "RELAX NG validation, completion and outline for TEI and ODD documents, as a language server",
+  "license": "MIT",
+  "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/eeditiones/oddity-language-server.git"
+  },
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./dist/index.js"
+    },
+    "./edit": {
+      "types": "./src/edit.ts",
+      "default": "./dist/edit.js"
+    },
+    "./node": "./dist/node.cjs",
+    "./schema/*": "./schema/*",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "schema",
+    "src"
+  ],
+  "scripts": {
+    "build": "esbuild src/node.ts --bundle --platform=node --format=cjs --target=node20 --outfile=dist/node.cjs --sourcemap && esbuild src/index.ts src/edit.ts --bundle --platform=neutral --format=esm --target=es2022 --packages=external --outdir=dist --sourcemap",
+    "check": "tsc --noEmit",
+    "test": "node --test 'test/*.test.ts'",
+    "schemas": "node scripts/schemas.mjs",
+    "prepare": "npm run build"
+  },
+  "dependencies": {
+    "@xml-tools/ast": "^5.0.5",
+    "@xml-tools/parser": "^1.0.11",
+    "salve-annos": "^1.2.5",
+    "saxes": "^6.0.0",
+    "vscode-languageserver": "^11.0.0",
+    "vscode-languageserver-textdocument": "^1.0.16"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "esbuild": "^0.28.2",
+    "typescript": "^7.0.2",
+    "vscode-jsonrpc": "^10.0.0"
+  }
+}
