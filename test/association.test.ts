@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { schemaFor, relativeHref, xmlModelEdits, projectRoot, type Files } from '../src/core/association.ts';
+import { schemaFor, relativeHref, xmlModelEdits, projectRoot, vocabulary, type Files } from '../src/core/association.ts';
 
 const files = (map: Record<string, string>): Files => ({
   exists: url => url in map,
@@ -63,4 +63,20 @@ test('a Schematron xml-model is left alone', () => {
   const sch = '<?xml-model href="a.sch" schematypens="http://purl.oclc.org/dsdl/schematron"?>\n';
   const out = apply(sch + TEI, xmlModelEdits(sch + TEI, 'a.rng'));
   assert.ok(out.includes('a.sch') && out.includes('a.rng'));
+});
+
+test('vocabularies: TEI, DocBook, JATS, and the rest', () => {
+  assert.equal(vocabulary(TEI), 'tei');
+  assert.equal(vocabulary('<article xmlns="http://docbook.org/ns/docbook" version="5.2"/>'), 'docbook');
+  assert.equal(vocabulary('<!DOCTYPE article PUBLIC "-//NLM//DTD JATS (Z39.96) Journal Archiving and Interchange DTD v1.3 20210610//EN" "x.dtd"><article/>'), 'jats');
+  assert.equal(vocabulary('<article article-type="research-article" dtd-version="1.3"><front/></article>'), 'jats');
+  assert.equal(vocabulary('<article><title>x</title></article>'), '');
+});
+
+test('published default schemas are used from the bundled copies', () => {
+  const fs = files({ 'file:///p/opm.toml': '[editor]\nschema = "https://cdn.docbook.org/schema/5.2/rng/docbook.rng"\n' });
+  const defaults = { ...DEFAULTS, docbook: 'file:///ext/docbook.rng' };
+  assert.deepEqual(schemaFor('file:///x.xml', pi('http://www.tei-c.org/release/xml/tei/custom/schema/relaxng/tei_all.rng') + '<doc/>', fs, defaults),
+    { url: DEFAULTS.tei, via: 'xml-model' });
+  assert.deepEqual(schemaFor('file:///p/x.xml', '<doc/>', fs, defaults), { url: 'file:///ext/docbook.rng', via: 'project' });
 });

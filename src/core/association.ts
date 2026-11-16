@@ -2,7 +2,8 @@
 // The same order as opm studio (src/ui/xmlSchema.ts there):
 // 1. a local RNG named by the document's <?xml-model?>
 // 2. for documents other than ODDs, [editor] schema in the nearest opm.toml
-// 3. a default by vocabulary: TEI Publisher's ODD schema for ODDs, tei_all for TEI
+// 3. a default by vocabulary: TEI Publisher's ODD schema for ODDs, tei_all for TEI,
+//    DocBook 5.2 and JATS 1.3 Archiving
 // Everything is a URL, so relative paths resolve the same way on every platform.
 import { readToml, tomlString } from './toml.ts';
 
@@ -26,10 +27,42 @@ export interface SchemaChoice {
 
 export const isOdd = (url: string) => /\.odd$/i.test(new URL(url).pathname);
 
-/** The vocabulary of a document by namespace or root element; '' for none we know. */
+/** The main file of each default schema, relative to the schema folder shipped with the package. */
+export const DEFAULT_SCHEMA_FILES: Record<string, string> = {
+  odd: 'odd/teipublisher_odds.rng',
+  tei: 'tei/tei_all.rng',
+  docbook: 'docbook/docbook.rng',
+  jats: 'jats/JATS-archivearticle1-3-mathml3.rng',
+};
+
+/** Where each default schema is published; documents often name these in their <?xml-model?>. */
+export const PUBLIC_SCHEMA_URLS: Record<string, string> = {
+  tei: 'https://tei-c.org/release/xml/tei/custom/schema/relaxng/tei_all.rng',
+  docbook: 'https://cdn.docbook.org/schema/5.2/rng/docbook.rng',
+  jats: 'https://jats.nlm.nih.gov/archiving/1.3/rng/JATS-archivearticle1-3-mathml3.rng',
+};
+
+/**
+ * The default schema a published schema URL stands for, so that the bundled copy is used
+ * instead of fetching it. Any JATS tag set maps to Archiving, the loosest of them.
+ */
+export function publicSchema(url: string): string | undefined {
+  if (/^https?:\/\/(www\.)?tei-c\.org\/.*\/tei_all\.rng$/i.test(url)) return 'tei';
+  if (/^https?:\/\/([\w-]+\.)?docbook\.org\/.*\/docbook\.rng$/i.test(url)) return 'docbook';
+  if (/^https?:\/\/jats\.nlm\.nih\.gov\/.*\.rng$/i.test(url)) return 'jats';
+  return undefined;
+}
+
+/** The vocabulary of a document by namespace, root element or doctype; '' for none we know. */
 export function vocabulary(text: string): string {
   const head = text.slice(0, 5000);
   if (head.includes('http://www.tei-c.org/ns/1.0') || /<(TEI|teiCorpus)[\s>]/.test(head)) return 'tei';
+  if (head.includes('http://docbook.org/ns/docbook')) return 'docbook';
+  // JATS has no namespace: its doctype, or an <article> without one (DocBook's has its own)
+  // that says it is JATS by @dtd-version, @article-type or its <front>
+  if (/<!DOCTYPE\s+article\s+PUBLIC\s+"-\/\/NLM\/\/DTD/.test(head)) return 'jats';
+  const article = head.match(/<article(?=[\s>])[^>]*>/)?.[0];
+  if (article && !/\sxmlns\s*=/.test(article) && (/\s(dtd-version|article-type)\s*=/.test(article) || /<front[\s>]/.test(head))) return 'jats';
   return '';
 }
 
@@ -63,8 +96,13 @@ const sameDir = (a: string, b: string) => a.replace(/\/?$/, '/') === b.replace(/
 /** The schema of the document at url with text, or null when it has none. */
 export function schemaFor(url: string, text: string, files: Files, defaults: Defaults, stops: string[] = []): SchemaChoice | null {
   for (const pi of xmlModels(text)) {
-    // remote schemas are left alone: they would be fetched on every edit
-    if (!isRngModel(pi) || !pi.href || /^(https?|ftp):/i.test(pi.href)) continue;
+    if (!isRngModel(pi) || !pi.href) continue;
+    // a published default schema is used from the bundled copy; other remote ones are left alone
+    if (/^(https?|ftp):/i.test(pi.href)) {
+      const bundled = defaults[publicSchema(pi.href) ?? ''];
+      if (bundled) return { url: bundled, via: 'xml-model' };
+      continue;
+    }
     const target = new URL(pi.href, url).href;
     if (files.exists(target)) return { url: target, via: 'xml-model' };
   }
@@ -74,6 +112,8 @@ export function schemaFor(url: string, text: string, files: Files, defaults: Def
     const toml = root && files.read(new URL('opm.toml', root).href);
     const configured = toml ? tomlString(readToml(toml), 'editor', 'schema') : '';
     if (configured && /\.rng$/i.test(configured)) {
+      const bundled = defaults[publicSchema(configured) ?? ''];
+      if (bundled) return { url: bundled, via: 'project' };
       const target = new URL(configured, root).href;
       if (files.exists(target)) return { url: target, via: 'project' };
     }

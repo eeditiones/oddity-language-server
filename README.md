@@ -14,8 +14,12 @@ The language server tries to find the schema associated with a document by check
 
 1. a local `.rng` named by the document's `<?xml-model?>`
 2. for documents other than ODDs, `[editor] schema` in the nearest `opm.toml`
-3. defaults: `schema/odd/teipublisher_odds.rng` for `.odd` files,
-   `schema/tei/tei_all.rng` for TEI documents
+3. defaults by vocabulary: `schema/odd/teipublisher_odds.rng` for `.odd` files,
+   and for documents recognised as TEI, DocBook or JATS `tei_all`, DocBook 5.2 or
+   JATS 1.3 Archiving with MathML 3 (see `schema/README.md` for sources and licences)
+
+An `<?xml-model?>` or `[editor] schema` naming one of these by its published URL
+(e.g. the TEI's `tei_all.rng`) uses the bundled copy; other remote schemas are ignored.
 
 If no schema can be determined, the language server still supports
 well-formedness checks, an outline and tag renaming.

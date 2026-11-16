@@ -4,7 +4,7 @@ export { possibleAt, described, type Possible, type Suggestion } from './core/co
 export { wellFormed } from './core/wellformed.ts';
 export { Grammars, type ReadText } from './core/schema.ts';
 export {
-  schemaFor, projectRoot, vocabulary, isOdd, xmlModels, isRngModel, xmlModelEdits, relativeHref, RNG_NS,
+  schemaFor, projectRoot, vocabulary, isOdd, xmlModels, isRngModel, xmlModelEdits, relativeHref, RNG_NS, DEFAULT_SCHEMA_FILES, PUBLIC_SCHEMA_URLS, publicSchema,
   type Files, type Defaults, type SchemaChoice, type TextEdit,
 } from './core/association.ts';
 export { scanTags, pairs, matchingTags, openElementAt, closeTagAt, type Tag } from './core/tags.ts';

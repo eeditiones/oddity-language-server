@@ -71,6 +71,15 @@ test('allowed elements and selection ranges', async () => {
   assert.ok(r.parent);
 });
 
+test('DocBook and JATS documents get their default schemas', async () => {
+  const db = await open(pathToFileURL(join(tmpdir(), 'oddity-ls-db.xml')).href,
+    '<article xmlns="http://docbook.org/ns/docbook" version="5.2"><title>t</title><para>x<bogus/></para></article>');
+  assert.deepEqual(db.map(x => x.message), ['<bogus> is not allowed here']);
+  const jats = await open(pathToFileURL(join(tmpdir(), 'oddity-ls-jats.xml')).href,
+    '<article dtd-version="1.3" article-type="research-article"><front><bogus/></front></article>');
+  assert.ok(jats.some(x => x.message === '<bogus> is not allowed here'));
+});
+
 test('the schema in use is reported', async () => {
   const choice = await conn.sendRequest<{ url: string; via: string }>('oddity/schemaFor', { uri });
   assert.deepEqual(choice, { url: pathToFileURL(join(dir, 'schema/doc.rng')).href, via: 'project' });

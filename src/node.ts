@@ -4,6 +4,7 @@ import { readFile } from 'node:fs/promises';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { createConnection, ProposedFeatures } from 'vscode-languageserver/node';
 import { startServer, type Host } from './server/server.ts';
+import { DEFAULT_SCHEMA_FILES } from './core/association.ts';
 
 const local = (url: string | URL) => {
   const u = typeof url === 'string' ? new URL(url) : url;
@@ -31,7 +32,7 @@ const host: Host = {
 const schemaDir = process.env.ODDITY_LS_SCHEMAS;
 if (schemaDir) {
   const base = pathToFileURL(schemaDir.endsWith('/') ? schemaDir : `${schemaDir}/`);
-  host.defaults = { odd: new URL('odd/teipublisher_odds.rng', base).href, tei: new URL('tei/tei_all.rng', base).href };
+  host.defaults = Object.fromEntries(Object.entries(DEFAULT_SCHEMA_FILES).map(([k, f]) => [k, new URL(f, base).href]));
 }
 
 startServer(createConnection(ProposedFeatures.all), host);

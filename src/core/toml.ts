@@ -1,6 +1,7 @@
 // ── opm.toml: write the keys the page controls, read the few it needs ─────
-// Not a TOML parser: it reads string and string-array values, which is all the
-// page looks at, and edits leave every other line of the file as it is.
+// Reading parses the whole file with smol-toml (TOML 1.0). Writing does not
+// serialize: the edits leave every other line of the file, comments included, as it is.
+import { parse } from 'smol-toml';
 
 export type TomlValue = string | string[];
 export type TomlConfig = Record<string, Record<string, TomlValue>>;
@@ -31,24 +32,28 @@ export function unsetToml(text: string, section: string, key: string): string {
   return lines.join('\n');
 }
 
+/**
+ * The string and string-array values of a TOML file, by table: `[transform.web] template = …`,
+ * `[transform] web.template = …` and `transform.web.template = …` all end up under
+ * cfg['transform.web'].template. Other values and arrays of tables are left out.
+ * A file that is not valid TOML gives no values, as opm would not run with it either.
+ */
 export function readToml(text: string): TomlConfig {
+  let doc: Record<string, unknown>;
+  try { doc = parse(text); } catch { return {}; }
   const cfg: TomlConfig = {};
-  let sec = '';
-  for (const line of text.split('\n')) {
-    const h = line.match(/^\s*\[([^\]]+)\]\s*$/);
-    if (h) { sec = h[1].trim(); continue; }
-    const kv = line.match(/^\s*([\w.-]+)\s*=\s*(.+?)\s*$/);
-    if (!kv || sec.startsWith('[')) continue;
-    const raw = kv[2];
-    let v: TomlValue;
-    if (raw.startsWith('"')) {
-      const m = raw.match(/^"(?:[^"\\]|\\.)*"/);
-      try { v = JSON.parse(m![0]); } catch { continue; }
-    } else if (raw.startsWith('[')) {
-      v = (raw.match(/"(?:[^"\\]|\\.)*"/g) || []).map(s => JSON.parse(s) as string);
-    } else continue;
-    (cfg[sec] ||= {})[kv[1]] = v;
-  }
+  const walk = (table: Record<string, unknown>, path: string[]) => {
+    for (const [key, v] of Object.entries(table)) {
+      if (typeof v === 'string' || (Array.isArray(v) && v.length && v.every(x => typeof x === 'string'))) {
+        (cfg[path.join('.')] ||= {})[key] = v as TomlValue;
+      } else if (Array.isArray(v) && !v.length) {
+        (cfg[path.join('.')] ||= {})[key] = [];
+      } else if (v && typeof v === 'object' && !Array.isArray(v) && !(v instanceof Date)) {
+        walk(v as Record<string, unknown>, [...path, key]);
+      }
+    }
+  };
+  walk(doc, []);
   return cfg;
 }
 
