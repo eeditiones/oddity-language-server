@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 // Node entry: run with --node-ipc (VS Code) or --stdio.
 import { existsSync, readFileSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';

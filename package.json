@@ -1,12 +1,37 @@
 {
-  "name": "oddity-language-server",
+  "name": "@teipublisher/oddity-language-server",
   "version": "0.1.0",
   "description": "RELAX NG validation, completion and outline for TEI and ODD documents, as a language server",
   "license": "MIT",
   "type": "module",
+  "author": "e-editiones",
+  "homepage": "https://github.com/eeditiones/oddity-language-server#readme",
+  "bugs": {
+    "url": "https://github.com/eeditiones/oddity-language-server/issues"
+  },
+  "keywords": [
+    "tei",
+    "odd",
+    "relax-ng",
+    "xml",
+    "docbook",
+    "jats",
+    "language-server",
+    "lsp",
+    "tei-publisher"
+  ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/eeditiones/oddity-language-server.git"
+    "url": "git+https://github.com/eeditiones/oddity-language-server.git"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "bin": {
+    "oddity-language-server": "./dist/node.cjs"
   },
   "exports": {
     ".": {
